@@ -39,6 +39,12 @@ export default function Home() {
     seconds: "0",
   })
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
@@ -64,7 +70,7 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="text-5xl md:text-6xl font-semibold tracking-tight tabular-nums font-mono">
-                {formatTime(now)}
+                {mounted ? formatTime(now) : "--:--:--"}
               </div>
             </CardContent>
           </Card>
