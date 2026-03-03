@@ -10,7 +10,6 @@ type Slot = {
   days: string;
   hours: string;
   minutes: string;
-  seconds: string;
 }
 
 function pad2(n: number){
@@ -25,15 +24,34 @@ function formatDate(d: Date) {
   const y = d.getFullYear();
   const m = pad2(d.getMonth() + 1);
   const day = pad2(d.getDate());
-  return `${y} - ${m} - ${day}`
+  return `${y}-${m}-${day}`
 }
 
 function calcMs(slot: Slot) {
+  const d = Number(slot.days) || 0;
   const h = Number(slot.hours) || 0;
   const m = Number(slot.minutes) || 0;
-  const s = Number(slot.seconds) || 0;
-  const baseMs = ((h * 60 + m) * 60 + s) * 1000
-  return baseMs * slot.multiplier;
+
+  const baseMs = (((d * 24 + h) * 60) + m) * 60 * 1000;
+
+  const mult = slot.multiplier > 0 ? slot.multiplier : 1;
+  return baseMs / mult;
+}
+
+function formatDuration(ms: number) {
+  const totalMinutes = Math.floor(ms / 60000);
+
+  const days = Math.floor(totalMinutes / (60 * 24));
+  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+  const minutes = totalMinutes % 60;
+
+  const parts: string[] = [];
+
+  if(days > 0) parts.push(`${days}d`);
+  if(hours > 0) parts.push(`${hours}h`);
+  if(minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+
+  return parts.join(" ");
 }
 
 export default function MultiPage() {
@@ -45,7 +63,6 @@ export default function MultiPage() {
       days: "0",
       hours: "0",
       minutes: "0",
-      seconds: "0"
     }))
   );
 
@@ -65,12 +82,12 @@ export default function MultiPage() {
   }
 
   return(
-    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <main className="min-h-screen bg-linear-to-b from-background to-muted/30">
       <div className="mx-auto max-w-5xl px-4 py-10 md:px-8 space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Multi Slots</h1>
-            <p className="text-sm text-muted-foreground">Each slot: result = now + (duration x multiplier)</p>
+            <p className="text-sm text-muted-foreground">Each slot: result = now + (duration ÷ multiplier)</p>
           </div>
 
           <div className="text-right">
@@ -107,6 +124,17 @@ export default function MultiPage() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
+                    <div className="text-xs font-medium text-muted-foreground">Days</div>
+                    <Input
+                      className="h-10"
+                      type="number"
+                      min={0}
+                      value={slot.days}
+                      onChange={(e) => updateSlot(i, {days: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Hours</div>
                     <Input
                       className="h-10"
@@ -127,17 +155,6 @@ export default function MultiPage() {
                       onChange={(e) => updateSlot(i, {minutes: e.target.value})}
                     />
                   </div>
-
-                  <div className="space-y-1">
-                    <div className="text-xs font-medium text-muted-foreground">Second</div>
-                    <Input
-                      className="h-10"
-                      type="number"
-                      min={0}
-                      value={slot.seconds}
-                      onChange={(e) => updateSlot(i, {seconds: e.target.value})}
-                    />
-                  </div>
                 </div>
 
                 <div className="rounded-xl border bg-card p-3">
@@ -150,7 +167,7 @@ export default function MultiPage() {
                   </div>
 
                   <div className="mt-2 text-xs text-muted-foreground">
-                    Added: {(calcMs(slot) / 1000).toFixed(0)}s (x{slot.multiplier})
+                    Time needed: {formatDuration(calcMs(slot))}
                   </div>
                 </div>
               </CardContent>
