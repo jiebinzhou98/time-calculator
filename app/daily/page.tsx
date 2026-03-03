@@ -24,7 +24,7 @@ function formatDate(d: Date) {
   const y = d.getFullYear();
   const m = pad2(d.getMonth() + 1);
   const day = pad2(d.getDate());
-  return `${y} - ${m} - ${day}`;
+  return `${y}-${m}-${day}`;
 }
 
 export default function Home() {
@@ -127,10 +127,10 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="text-5xl md:text-6xl font-semibold tracking-tight tabular-nums font-mono">
-                {formatTime(result)}
+                {mounted ? formatTime(result): "--:--:--"}
               </div>
               <div className="text-sm text-muted-foreground tabular-nums">
-                {formatDate(result)}
+                {mounted ? formatDate(result): "---- -- --"}
               </div>
             </CardContent>
           </Card>

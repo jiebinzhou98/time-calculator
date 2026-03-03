@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
-import {Input} from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 type Slot = {
@@ -12,7 +12,7 @@ type Slot = {
   minutes: string;
 }
 
-function pad2(n: number){
+function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
 
@@ -47,9 +47,9 @@ function formatDuration(ms: number) {
 
   const parts: string[] = [];
 
-  if(days > 0) parts.push(`${days}d`);
-  if(hours > 0) parts.push(`${hours}h`);
-  if(minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
 
   return parts.join(" ");
 }
@@ -58,7 +58,7 @@ export default function MultiPage() {
   const [mounted, setMounted] = useState(false);
   const [now, setNow] = useState<Date>(() => new Date());
   const [slots, setSlots] = useState<Slot[]>(
-    Array.from({length: 5}, () => ({
+    Array.from({ length: 5 }, () => ({
       multiplier: 1,
       days: "0",
       hours: "0",
@@ -77,17 +77,16 @@ export default function MultiPage() {
     return slots.map((slot) => new Date(now.getTime() + calcMs(slot)));
   }, [now, slots])
 
-  function updateSlot(i: number, patch: Partial<Slot>){
-    setSlots((prev) => prev.map((s, idx) => (idx === i ? {...s, ...patch} : s)))
+  function updateSlot(i: number, patch: Partial<Slot>) {
+    setSlots((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
   }
 
-  return(
+  return (
     <main className="min-h-screen bg-linear-to-b from-background to-muted/30">
       <div className="mx-auto max-w-5xl px-4 py-10 md:px-8 space-y-6">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Multi Slots</h1>
-            <p className="text-sm text-muted-foreground">Each slot: result = now + (duration ÷ multiplier)</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Lab Slots</h1>
           </div>
 
           <div className="text-right">
@@ -109,20 +108,20 @@ export default function MultiPage() {
 
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  {[1,2,3,4,5].map((x) => (
+                  {[1, 2, 3, 4, 5].map((x) => (
                     <Button
                       key={x}
                       type="button"
                       variant={slot.multiplier === x ? "default" : "outline"}
-                      className="h-9 px-3"
-                      onClick={() => updateSlot(i, {multiplier: x})}
+                      className="h-9 flex-1 min-w-[60px]"
+                      onClick={() => updateSlot(i, { multiplier: x })}
                     >
                       x{x}
                     </Button>
                   ))}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div className="space-y-1">
                     <div className="text-xs font-medium text-muted-foreground">Days</div>
                     <Input
@@ -130,7 +129,7 @@ export default function MultiPage() {
                       type="number"
                       min={0}
                       value={slot.days}
-                      onChange={(e) => updateSlot(i, {days: e.target.value})}
+                      onChange={(e) => updateSlot(i, { days: e.target.value })}
                     />
                   </div>
 
@@ -141,7 +140,7 @@ export default function MultiPage() {
                       type="number"
                       min={0}
                       value={slot.hours}
-                      onChange={(e) => updateSlot(i, {hours: e.target.value})}
+                      onChange={(e) => updateSlot(i, { hours: e.target.value })}
                     />
                   </div>
 
@@ -152,7 +151,7 @@ export default function MultiPage() {
                       type="number"
                       min={0}
                       value={slot.minutes}
-                      onChange={(e) => updateSlot(i, {minutes: e.target.value})}
+                      onChange={(e) => updateSlot(i, { minutes: e.target.value })}
                     />
                   </div>
                 </div>
@@ -167,7 +166,8 @@ export default function MultiPage() {
                   </div>
 
                   <div className="mt-2 text-xs text-muted-foreground">
-                    Time needed: {formatDuration(calcMs(slot))}
+                    Time needed: <span className="font-mono text-foreground">{formatDuration(calcMs(slot))}</span>{" "}
+                    <span className="text-muted-foreground">(x{slot.multiplier} speed)</span>
                   </div>
                 </div>
               </CardContent>

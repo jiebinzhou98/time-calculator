@@ -41,7 +41,7 @@ export default function Home() {
                 5 slots with multipliers and results
               </p>
               <Button asChild className="w-full" variant="outline">
-                <Link href="/multi">Open</Link>
+                <Link href="/research">Open</Link>
               </Button>
             </CardContent>
           </Card>
