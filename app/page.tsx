@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <main className="min-h-screen bg-linear-to-b from-background to-muted/30">
       <div className="mx-auto max-w-3xl px-4 py-12 md:px-8 space-y-8">
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Time Calculator</h1>

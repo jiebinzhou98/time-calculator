@@ -113,7 +113,7 @@ export default function MultiPage() {
                       key={x}
                       type="button"
                       variant={slot.multiplier === x ? "default" : "outline"}
-                      className="h-9 flex-1 min-w-[60px]"
+                      className="h-9 flex-1 min-w-15"
                       onClick={() => updateSlot(i, { multiplier: x })}
                     >
                       x{x}
