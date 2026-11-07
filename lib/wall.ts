@@ -1,6 +1,11 @@
 import { amount, calculateDamage, PCOL, type DamageSettings, type Unit } from './damage'
 
-export type WallSettings = {
+export type ThreatKind = 'scatter' | 'ray' | 'boss'
+export type ThreatFields = 'Count' | 'First' | 'Interval' | 'Arrival' | 'Multiplier'
+export type ThreatSettings = Record<`${ThreatKind}${ThreatFields}`, string>
+export type WallSettings = ThreatSettings & {
+  threatsMode: boolean
+  scatterSplits: string
   health: string; healthUnit: Unit; startPercent: string
   regen: string; regenUnit: Unit; wallRegen: string; regenMode: 'tower' | 'wall'
   thorns: string; wallThorns: string; enemyType: 'normal' | 'boss' | 'elite'
@@ -11,6 +16,10 @@ export type WallSettings = {
   orbOn: boolean; orbDelay: string
 }
 export const DEFAULT_WALL: WallSettings = {
+  threatsMode: true, scatterSplits: '4',
+  scatterCount:'1', scatterFirst:'1', scatterInterval:'1', scatterArrival:'0', scatterMultiplier:'1',
+  rayCount:'1', rayFirst:'30', rayInterval:'30', rayArrival:'0', rayMultiplier:'2',
+  bossCount:'1', bossFirst:'1', bossInterval:'1', bossArrival:'0', bossMultiplier:'1',
   health: '', healthUnit: 'q', startPercent: '100',
   regen: '', regenUnit: 'T', wallRegen: '200', regenMode: 'tower',
   thorns: '110', wallThorns: '13', enemyType: 'normal',
@@ -22,7 +31,7 @@ export const DEFAULT_WALL: WallSettings = {
 }
 export type HitEvent = { time: number; weight: number; hits: number }
 export type WallRun = { brokenAt: number | null; minimum: number; end: number; trace: {time:number; health:number}[] }
-export function buildWallScenario(s: WallSettings, d: DamageSettings) {
+function buildOrdinaryScenario(s: WallSettings, d: DamageSettings) {
   const errors: string[] = []
   function number(key: keyof WallSettings, min: number, max: number, integer = false) {
     const value = Number(s[key])
@@ -57,14 +66,13 @@ export function buildWallScenario(s: WallSettings, d: DamageSettings) {
   if (errors.length) return { errors, scenario: null }
   const hp = health!, regen = regenValue! * wallRegen / 100
   const basic = s.enemyType === 'normal'
-  // PCol is only applied to ordinary enemies explicitly exposed to an active BH.
-  // Immune enemies receive no assumed PCol mitigation in this scenario.
+  // BH damage / pull immunity does not prevent PCol mitigation inside its area.
   const baseReduction = calculateDamage({ ...d, pcolOn: false })!.inputFactor
   const pcolMultiplier = d.pcolOn ? 1 - PCOL[d.pcol] / 100 : 1
   const thornFraction = thorns / 100 * wallThorns / 100
     * (s.enemyType === 'boss' ? 0.5 : 1) * (1 - protection / 100)
   function bhActive(time: number) {
-    if (!s.bhOn || !basic || time < bhOffset) return false
+    if (!s.bhOn || time < bhOffset) return false
     const phase = ((time - bhOffset) % bhCooldown + bhCooldown) % bhCooldown
     return phase < bhDuration - 1e-8
   }
@@ -99,7 +107,7 @@ export function buildWallScenario(s: WallSettings, d: DamageSettings) {
         nextAttack = arrival + (hitIndex + 1) * attackInterval
       }
       if (Math.abs(t - nextBH) < 1e-7) {
-        if (bhActive(t)) enemyHP -= bhDamage / 100
+        if (basic && bhActive(t)) enemyHP -= bhDamage / 100
         nextBH++
       }
       if (Math.abs(t - orbTime) < 1e-7) enemyHP = 0
@@ -113,14 +121,100 @@ export function buildWallScenario(s: WallSettings, d: DamageSettings) {
   for (const c of changes) { alive += c.delta; peakEnemies = Math.max(peakEnemies, alive) }
   const hits = [...events.values()].sort((a,b)=>a.time-b.time)
   const pcolStatus = !d.pcolOn ? 'off'
-    : !basic ? 'unsupported'
     : !s.bhOn || bhDuration === 0 || bhOffset >= horizon ? 'inactive'
     : bhDuration === bhCooldown && bhOffset === 0 ? 'permanent' : 'windowed'
   const scenario = { pcolStatus, firstHitFactor:baseReduction * (bhActive(attackInterval) ? pcolMultiplier : 1), health:hp, startHealth:hp*startPercent/100, regen, horizon, hits, totalHits, totalSpawned,
-    killed, peakEnemies, firstCohortHits, firstCohortDeath, thornPercent:thornFraction*100 }
+    killed, peakEnemies, firstCohortHits, firstCohortDeath, thornPercent:thornFraction*100, threatBreakdown: [] as {kind:ThreatKind;hits:number;firstHitFactor:number;entities:number;firstClear:number|null}[] }
   return {errors, scenario}
 }
-export type WallScenario = NonNullable<ReturnType<typeof buildWallScenario>['scenario']>
+export type WallScenario = NonNullable<ReturnType<typeof buildOrdinaryScenario>['scenario']>
+
+export function buildWallScenario(s: WallSettings, d: DamageSettings): {errors:string[];scenario:WallScenario|null} {
+  if (!s.threatsMode) return buildOrdinaryScenario(s,d)
+  // Reuse common health / regen / reduction validation; ordinary attackers are never added.
+  const common=buildOrdinaryScenario({...s,enemyType:'elite',count:'1',attackInterval:'1',repeat:false,orbOn:false,bhDamage:'0'},d)
+  if (!common.scenario) return common
+  const base=common.scenario
+  const errors:string[]=[]
+  function number(key:keyof WallSettings,min:number,max:number,integer=false) {
+    const n=Number(s[key])
+    if (!String(s[key]).trim() || !Number.isFinite(n) || n<min || n>max || (integer&&!Number.isInteger(n))) {
+      errors.push(`${key}: ${integer?'integer ':''}${min}–${max}`)
+      return min
+    }
+    return n
+  }
+  const splits=number('scatterSplits',0,4,true)
+  const lanes=(['scatter','ray','boss'] as const).map(kind=>{
+    const count=number(`${kind}Count`,0,8,true)
+    return {kind,count,
+      first:count?number(`${kind}First`,0,300):0,
+      interval:count?number(`${kind}Interval`,0.25,300):1,
+      arrival:count?number(`${kind}Arrival`,0,300):0,
+      multiplier:count?number(`${kind}Multiplier`,0.001,1000):1}
+  })
+  if (!lanes.some(l=>l.count>0)) errors.push('Enable at least one threat by entering a count above zero.')
+  if (errors.length) return {errors,scenario:null}
+  const reduction=calculateDamage({...d,pcolOn:false})!.inputFactor
+  const pcol=d.pcolOn?1-PCOL[d.pcol]/100:1
+  const thorn=Number(s.thorns)/100*Number(s.wallThorns)/100*(s.protected?1-Number(s.protection)/100:1)
+  const bhActive=(time:number)=>s.bhOn && time>=Number(s.bhOffset) &&
+    ((time-Number(s.bhOffset))%Number(s.bhCooldown))<Number(s.bhDuration)-1e-8
+  const events=new Map<number,HitEvent>()
+  const changes:{time:number;delta:number}[]=[]
+  const breakdown:WallScenario['threatBreakdown']=[]
+  let totalHits=0,totalSpawned=0,killed=0,operations=0
+  for (const lane of lanes) {
+    if (!lane.count) continue
+    let laneHits=0,laneEntities=0,firstClear:number|null=null
+    const families=lane.arrival>0?Math.max(1,Math.ceil((base.horizon-lane.first)/lane.arrival+1e-9)):1
+    for (let family=0;family<families;family++) {
+      const first=lane.first+family*lane.arrival
+      if (first>base.horizon) continue
+      let generationStart=first
+      const generations=lane.kind==='scatter'?splits+1:1
+      let cleared:number|null=null
+      for (let generation=0;generation<generations;generation++) {
+        const population=lane.count*2**generation
+        // Children are new full-health enemies relative to their own maximum HP.
+        // No automatic damage halving or Flame Bot inheritance is inferred: checked
+        // reductions represent the user's confirmed full coverage on every hit.
+        let hp=generation===0?Number(s.enemyRemaining)/100:1
+        let hit=0
+        const retaliation=thorn*(lane.kind==='boss'?.5:1)
+        totalSpawned+=population; laneEntities+=population
+        changes.push({time:generationStart,delta:population})
+        let died=false
+        while (generationStart+hit*lane.interval<=base.horizon+1e-8) {
+          if (++operations>100000) return {errors:['Threat schedule too dense. Reduce counts / repeats or shorten duration.'],scenario:null}
+          const time=Math.round((generationStart+hit*lane.interval)*1e6)/1e6
+          const weight=population*lane.multiplier*reduction*Math.pow(s.heat?1.04:1,hit)*(bhActive(time)?pcol:1)
+          const old=events.get(time)
+          events.set(time,{time,weight:(old?.weight??0)+weight,hits:(old?.hits??0)+population})
+          totalHits+=population;laneHits+=population
+          hp-=retaliation
+          hit++
+          if (hp<=1e-10) {
+            killed+=population; changes.push({time,delta:-population})
+            cleared=time; generationStart=time+lane.interval; died=true; break
+          }
+        }
+        if (!died) {cleared=null;break}
+        if (generationStart>base.horizon && generation<generations-1) {cleared=null;break}
+      }
+      if (family===0) firstClear=cleared
+    }
+    breakdown.push({kind:lane.kind,hits:laneHits,entities:laneEntities,firstClear,
+      firstHitFactor:lane.multiplier*reduction*(bhActive(lane.first)?pcol:1)})
+  }
+  changes.sort((a,b)=>a.time-b.time||b.delta-a.delta)
+  let alive=0,peakEnemies=0
+  for (const change of changes) {alive+=change.delta;peakEnemies=Math.max(peakEnemies,alive)}
+  const hits=[...events.values()].sort((a,b)=>a.time-b.time)
+  return {errors:[],scenario:{...base,hits,totalHits,totalSpawned,killed,peakEnemies,
+    firstHitFactor:breakdown[0]?.firstHitFactor??0,firstCohortHits:0,firstCohortDeath:null,
+    threatBreakdown:breakdown}}
+}
 
 export function runWall(s: WallScenario, enemyDamage: number, trace = false): WallRun {
   let health = s.startHealth, min = health, last = 0

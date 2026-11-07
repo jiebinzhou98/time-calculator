@@ -17,7 +17,7 @@ function load(file) {
 const {DEFAULT_DAMAGE} = load('damage')
 const {DEFAULT_WALL, buildWallScenario, runWall, wallDamageLimit} = load('wall')
 const damage = {...DEFAULT_DAMAGE,defenseOn:false,enemyIncludesPerk:false}
-const settings = {...DEFAULT_WALL,health:'100',healthUnit:'',regen:'0',regenUnit:'',
+const settings = {...DEFAULT_WALL,threatsMode:false,health:'100',healthUnit:'',regen:'0',regenUnit:'',
   repeat:false,count:'1',thorns:'100',wallThorns:'100',horizon:'30',heat:false}
 const build=(s={},d={})=>{
   const r=buildWallScenario({...settings,...s},{...damage,...d})
@@ -52,7 +52,7 @@ assert.equal(build({enemyType:'boss',thorns:'0',bhOn:true,bhDuration:'50',bhCool
 s=build({thorns:'0',horizon:'4',bhOn:true,bhDuration:'2',bhCooldown:'4'}, {pcolOn:true})
 near(s.hits[0].weight,.1); near(s.hits[1].weight,1); near(s.hits[3].weight,.1)
 near(build({bhOn:false},{pcolOn:true}).hits[0].weight,1)
-near(build({enemyType:'elite',bhOn:true},{pcolOn:true}).hits[0].weight,1)
+near(build({enemyType:'elite',bhOn:true},{pcolOn:true}).hits[0].weight,.1)
 near(build({}, {perkOn:true,perkLevel:'10',enemyIncludesPerk:false}).hits[0].weight,.45)
 near(build({}, {perkOn:true,perkLevel:'10',enemyIncludesPerk:true}).hits[0].weight,1)
 s=build({thorns:'110',wallThorns:'13',repeat:true,arrivalInterval:'2',count:'10',horizon:'20'})
@@ -76,7 +76,7 @@ for(const variant of [{},{heat:true},{regen:'5',repeat:true},{enemyType:'boss'},
 }
 near(wallDamageLimit(build({health:'1',healthUnit:'q',regen:'0'})), wallDamageLimit(build({health:'1',healthUnit:'',regen:'0'}))*1e15)
 // User regression: 40q Wall, final Wall Regen 420T/s, 200q enemy stat.
-const userWall={...DEFAULT_WALL,health:'40',healthUnit:'q',regen:'420',regenUnit:'T',regenMode:'wall',bhOn:true,bhDuration:'50',bhCooldown:'50'}
+const userWall={...DEFAULT_WALL,threatsMode:false,health:'40',healthUnit:'q',regen:'420',regenUnit:'T',regenMode:'wall',bhOn:true,bhDuration:'50',bhCooldown:'50'}
 const userDamage={...DEFAULT_DAMAGE,defenseOn:true,defense:'98',flameOn:true,flame:'95',pcolOn:true,pcol:'Ancestral',perkOn:true,enemyIncludesPerk:true}
 const covered=buildWallScenario(userWall,userDamage).scenario
 assert.equal(covered.pcolStatus,'permanent')
@@ -87,7 +87,7 @@ const uncovered=buildWallScenario({...userWall,bhOn:false},userDamage).scenario
 assert.equal(uncovered.pcolStatus,'inactive')
 near(wallDamageLimit(covered),wallDamageLimit(uncovered)*10)
 assert.notEqual(runWall(uncovered,200e15).brokenAt,null)
-assert.equal(buildWallScenario({...userWall,enemyType:'boss'},userDamage).scenario.pcolStatus,'unsupported')
+assert.equal(buildWallScenario({...userWall,enemyType:'boss'},userDamage).scenario.pcolStatus,'permanent')
 // Single-hit and siege must use the same first-hit reduction when coverage matches.
 const {calculateDamage}=load('damage')
 const at10Q={...userDamage,health:'40',healthUnit:'q',enemy:'10',enemyUnit:'Q'}
@@ -97,4 +97,30 @@ near(1e15/covered.regen,2.380952380952381)
 assert.notEqual(runWall(covered,1e19).brokenAt,null)
 const onlyOne=buildWallScenario({...userWall,count:'1',repeat:false},userDamage).scenario
 assert.equal(runWall(onlyOne,1e19).brokenAt,null)
+// Threat model: one Scatter family has 31 bodies, not ten ordinary attackers.
+const threatBase={...userWall,threatsMode:true,scatterCount:'1',rayCount:'0',bossCount:'0',horizon:'120'}
+const scatter=buildWallScenario(threatBase,userDamage).scenario
+assert.equal(scatter.totalSpawned,31)
+assert.equal(scatter.totalHits,217) // 31 bodies × 7 Thorn hits
+assert.equal(scatter.threatBreakdown[0].firstClear,35)
+near(scatter.hits[0].weight,userDamage.flameOn?.0001:.002)
+const ray=buildWallScenario({...threatBase,scatterCount:'0',rayCount:'1'},userDamage).scenario
+assert.deepEqual(ray.hits.map(e=>e.time),[30,60,90,120])
+near(ray.hits[0].weight,.0002)
+const boss=buildWallScenario({...threatBase,scatterCount:'0',bossCount:'1'},userDamage).scenario
+assert.equal(boss.totalHits,14)
+near(boss.hits[0].weight,.0001) // PCol also covers Bosses
+const immune=buildWallScenario({...threatBase,bhDamage:'100',orbOn:true,orbDelay:'0'},userDamage).scenario
+assert.equal(immune.totalHits,scatter.totalHits) // BH / Orb cannot kill Scatter
+const mixed=buildWallScenario({...threatBase,rayCount:'1',bossCount:'1'},userDamage).scenario
+assert.equal(mixed.totalHits,scatter.totalHits+ray.totalHits+boss.totalHits)
+near(mixed.hits[0].weight,scatter.hits[0].weight+boss.hits[0].weight)
+assert.equal(mixed.threatBreakdown.length,3)
+const none=buildWallScenario({...threatBase,scatterCount:'0'},userDamage)
+assert.ok(none.errors.length)
+for(const schedule of [scatter,ray,boss,mixed]) {
+  const boundary=wallDamageLimit(schedule)
+  assert.equal(runWall(schedule,boundary*.999).brokenAt,null)
+  assert.notEqual(runWall(schedule,boundary*1.001).brokenAt,null)
+}
 console.log('Wall tests passed: Thorns breakpoints, heat-up, immunity, timed clearing, PCol windows, perk handling, arrivals, regen timing/caps, lethal ordering, validation, boundary search.')
