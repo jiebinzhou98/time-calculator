@@ -6,13 +6,13 @@ import { AppNav } from "@/components/app-nav";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Time Calculator",
-  description: "Calculate end time based on duration",
+  title: "Tower Tools",
+  description: "Your personal workspace for The Tower research and Wall survival",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "TimeCalc",
+    title: "Tower Tools",
   }
 };
 
@@ -22,10 +22,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body className={`${inter.className} bg-background text-foreground`}>
         <AppNav/>
-        {children}
+        <div className="console-content">{children}</div>
       </body>
     </html>
   );

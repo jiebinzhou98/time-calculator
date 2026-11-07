@@ -42,7 +42,8 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const id = window.setTimeout(() => setMounted(true), 0);
+    return () => window.clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -61,15 +62,16 @@ export default function Home() {
   }, [now, duration]);
 
   return (
-    <main className="min-h-screen bg-linear-to-b from-background to-muted/30">
-      <div className="mx-auto max-w-3xl px-4 py-10 md:px-8">
+    <main className="console-page">
+      <div className="max-w-3xl mx-auto">
+        <div className="console-page-heading"><div><p className="console-eyebrow">QUICK TOOL</p><h1>Time calculator</h1><p className="console-subtitle">A duration from now. A clear time to come back.</p></div></div>
         <div className="space-y-6">
           <Card className="rounded-2xl border-muted/60 shadow-sm transition hover:shadow-md">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold tracking-tight">Current Time</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="text-5xl md:text-6xl font-semibold tracking-tight tabular-nums font-mono">
+              <div className="text-4xl md:text-5xl font-medium tracking-tight tabular-nums font-mono">
                 {mounted ? formatTime(now) : "--:--:--"}
               </div>
             </CardContent>
@@ -79,12 +81,13 @@ export default function Home() {
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-semibold tracking-tight">Duration</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <CardContent className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Days</div>
                 <Input
-                  className="h-11"
+                  className="h-14 font-mono text-xl"
                   type="number"
+                  aria-label="Days"
                   min={0}
                   value={duration.days}
                   onChange={(e) => setDuration((d) => ({
@@ -96,8 +99,9 @@ export default function Home() {
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Hours</div>
                 <Input
-                  className="h-11"
+                  className="h-14 font-mono text-xl"
                   type="number"
+                  aria-label="Hours"
                   min={0}
                   value={duration.hours}
                   onChange={(e) => setDuration((d) => ({
@@ -109,8 +113,9 @@ export default function Home() {
               <div className="space-y-2">
                 <div className="text-xs font-medium text-muted-foreground">Minutes</div>
                 <Input
-                  className="h-11"
+                  className="h-14 font-mono text-xl"
                   type="number"
+                  aria-label="Minutes"
                   min={0}
                   value={duration.minutes}
                   onChange={(e) => setDuration((d) => ({
@@ -121,12 +126,12 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-primary/20 bg-primary/5 shadow-sm transition hover:shadow-md">
+          <Card className="console-result">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold tracking-tight">Result</CardTitle>
+              <CardTitle className="text-base font-semibold tracking-tight">Estimated completion</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <div className="text-5xl md:text-6xl font-semibold tracking-tight tabular-nums font-mono">
+              <div className="text-4xl md:text-5xl font-medium tracking-tight tabular-nums font-mono">
                 {mounted ? formatTime(result): "--:--:--"}
               </div>
               <div className="text-sm text-muted-foreground tabular-nums">

@@ -60,33 +60,34 @@ export default function DamagePage() {
   const hasEnemy = settings.enemy.trim() !== ''
   const survive = validHealth && result?.hit != null && result.hit < result.health!
   function layer(toggle: 'defenseOn' | 'flameOn' | 'pcolOn' | 'perkOn' | 'cfOn', title: string, description: string, control: React.ReactNode) {
-    return <div className="rounded-xl border p-4 space-y-3">
-      <label className="flex items-center gap-3 font-medium cursor-pointer">
-        <input type="checkbox" className="size-5 accent-primary" checked={settings[toggle]} onChange={e => patch({ [toggle]: e.target.checked })} />{title}
+    return <div className="console-reduction">
+      <label className="flex items-center gap-2 font-medium cursor-pointer min-w-0">
+        <input type="checkbox" className="size-4 accent-primary shrink-0" checked={settings[toggle]} onChange={e => patch({ [toggle]: e.target.checked })} />{title}
       </label>
-      <p className="text-sm text-muted-foreground">{description}</p>
+
       <fieldset disabled={!settings[toggle]} className="disabled:opacity-40">{control}</fieldset>
+      <details className="col-span-2"><summary>How it applies</summary><p className="console-note mt-2">{description}</p></details>
     </div>
   }
   function percentInput(label: string, field: 'defense' | 'flame' | 'cf' | 'perkLevel', max: number) {
-    return <label className="flex items-center gap-3 text-sm"><span>{label}</span><Input aria-label={label} className="h-11 max-w-28" type="number" inputMode="decimal" min="0" max={max} step={field === 'perkLevel' ? 1 : 'any'} value={settings[field]} onChange={e => patch({ [field]: e.target.value })} /></label>
+    return <label className="flex items-center gap-2 text-xs"><span className="sr-only">{label}</span><Input aria-label={label} className="h-11 max-w-28" type="number" inputMode="decimal" min="0" max={max} step={field === 'perkLevel' ? 1 : 'any'} value={settings[field]} onChange={e => patch({ [field]: e.target.value })} /><span className="text-muted-foreground text-[10px]">{field === "perkLevel" ? "Lv" : "%"}</span></label>
   }
-  const reductions = (<Card><CardHeader><CardTitle>Active reductions</CardTitle></CardHeader><CardContent className="space-y-3">
+  const reductions = (<Card><CardHeader><CardTitle className="text-sm">Active reductions</CardTitle></CardHeader><CardContent>
             {layer('defenseOn', 'Defense %', 'Use the total shown in-game, including card, labs and perks. Maximum 98%.', percentInput('Defense % (0–98)', 'defense', 98))}
             {layer('flameOn', 'Flame Bot', 'Applies only to an enemy tagged by Flame Bot. Enter its actual damage reduction, up to 95%.', percentInput('Flame Bot reduction %', 'flame', 95))}
-            {layer('pcolOn', 'Primordial Collapse (PCol)', 'Assumes this enemy is affected by the module inside a Black Hole. Black Hole being active alone is not sufficient.', <label className="flex items-center gap-3 text-sm">Rarity<select aria-label="PCol rarity" className={selectClass} value={settings.pcol} onChange={e => patch({pcol: e.target.value as keyof typeof PCOL})}>{Object.entries(PCOL).map(([rarity, value]) => <option key={rarity} value={rarity}>{rarity} · {value}%</option>)}</select></label>)}
+            {layer('pcolOn', 'Primordial Collapse (PCol)', 'Assumes this enemy is affected by the module inside a Black Hole. Black Hole being active alone is not sufficient.', <label className="flex items-center gap-2 text-xs"><span className="sr-only">Rarity</span><select aria-label="PCol rarity" className={selectClass} value={settings.pcol} onChange={e => patch({pcol: e.target.value as keyof typeof PCOL})}>{Object.entries(PCOL).map(([rarity, value]) => <option key={rarity} value={rarity}>{rarity} · {value}%</option>)}</select></label>)}
             {layer('perkOn', '50/50 trade-off perk', 'Enemy damage −50%, tower damage −50%. Improve Trade-Off Perks increases enemy reduction to 55% at lab level 10.', percentInput('Trade-off lab level (0–10)', 'perkLevel', 10))}
             {layer('cfOn', 'Chrono Field', 'Damage reduction research while Chrono Field is active. This is not its enemy slow percentage.', percentInput('CF damage reduction %', 'cf', 25))}
           </CardContent></Card>)
-  return <main className="min-h-screen bg-linear-to-b from-background to-muted/30 pb-24">
-    <div className="mx-auto max-w-5xl px-4 py-8 md:px-8 space-y-6">
-      <div className="flex items-center justify-between gap-4"><div><h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Damage Calculator</h1><p className="mt-2 text-sm text-muted-foreground">Compare single hits and Wall survival under sustained attacks.</p></div><Button variant="outline" onClick={() => setSettings({ ...DEFAULT_DAMAGE })}>Reset</Button></div>
-      <div className="flex gap-2" role="group" aria-label="Calculator mode">
+  return <main className="console-page">
+    <div className="space-y-5">
+      <div className="console-page-heading"><div><p className="console-eyebrow">DEFENSE WORKSPACE</p><h1>Wall survival</h1><p className="console-subtitle">Your health, regeneration and active reductions. One clear view.</p></div><Button variant="outline" className="text-xs" onClick={() => setSettings({ ...DEFAULT_DAMAGE })}>Reset reductions</Button></div>
+      <div className="console-tabs" role="group" aria-label="Calculator mode">
         <Button variant={mode === 'wall' ? 'default' : 'outline'} onClick={() => setMode('wall')}>Wall sustain</Button>
         <Button variant={mode === 'single' ? 'default' : 'outline'} onClick={() => setMode('single')}>Single hit</Button>
       </div>
       {mode === 'wall' ? <>
-        <label className="block max-w-lg space-y-2 text-sm"><span>Enemy damage source (shared)</span><select aria-label="Wall enemy damage source" className={`${selectClass} w-full`} value={settings.enemyIncludesPerk ? 'displayed' : 'raw'} onChange={e => patch({ enemyIncludesPerk: e.target.value === 'displayed' })}><option value="displayed">In-game stat — already includes trade-off perk</option><option value="raw">Raw damage — before trade-off perk</option></select></label>
+        <label className="block max-w-md space-y-2 text-xs"><span className="text-muted-foreground">Enemy damage source</span><select aria-label="Wall enemy damage source" className={`${selectClass} w-full`} value={settings.enemyIncludesPerk ? 'displayed' : 'raw'} onChange={e => patch({ enemyIncludesPerk: e.target.value === 'displayed' })}><option value="displayed">In-game stat — already includes trade-off perk</option><option value="raw">Raw damage — before trade-off perk</option></select></label>
         <WallSimulator damage={settings} reductions={reductions} onEnemyChange={(enemy, enemyUnit) => patch({enemy, enemyUnit})}/>
       </> : <div className="grid gap-6 md:grid-cols-2 items-start">
         <div className="space-y-6">
@@ -99,8 +100,8 @@ export default function DamagePage() {
           </CardContent></Card>
           {reductions}
         </div>
-        <div className="space-y-5 md:sticky md:top-20">
-          <Card className="border-primary/20 bg-primary/5"><CardHeader><CardTitle>Single-hit damage limit</CardTitle></CardHeader><CardContent className="space-y-5">
+        <div className="space-y-4 md:sticky md:top-6">
+          <Card className="console-result"><CardHeader><CardTitle>Single-hit damage limit</CardTitle></CardHeader><CardContent className="space-y-5">
             {!result ? <p role="alert">Check enabled values: Defense 0–98%, Flame Bot 0–95%, CF 0–25%, trade-off lab integer 0–10.</p> : <>
               <div><div className="text-sm text-muted-foreground">Raw enemy damage before trade-off perk</div><div className="text-4xl font-semibold font-mono mt-2 break-all">{validHealth ? fmt(result.rawLimit) : '—'}</div></div>
               <div><div className="text-sm text-muted-foreground">Limit for selected enemy damage source</div><div className="text-2xl font-mono mt-1">{validHealth ? fmt(result.displayedLimit) : '—'}</div></div>

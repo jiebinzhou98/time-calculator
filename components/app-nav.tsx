@@ -1,78 +1,34 @@
 'use client'
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Castle, LayoutDashboard, FlaskConical, Shield, Clock3, ArrowUpRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 const links = [
-  {href: "/", label: "Home"},
-  {href: "/daily", label: "Daily"},
-  {href: "/research", label: "Research"},
-  {href: "/damage", label: "Damage"},
-];
-
-function TopNav() {
-  const pathname = usePathname();
-
-  return(
-    <div className="sticky top-0 z-50 hidden border-b bg-background/80 backdrop-blur md:block">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 md:px-8">
-        <Link href="/" className="font-semibold tracking-tight">
-          TimeCalc
-        </Link>
-
-        <nav className="flex items-center gap-2">
-          {links.map((l) => {
-            const active = pathname === l.href;
-            return(
-              <Link
-                key={l.href}
-                href={l.href}
-                className={cn(
-                  "rounded-full px-3 py-1 text-sm transition",
-                  active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {l.label}
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
-    </div>
-  );
-}
-
-function BottomNav() {
-  const pathname = usePathname();
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-4 px-3 py-2">
-        {links.map((l) => {
-          const active = pathname === l.href;
-          return (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={cn(
-                "flex flex-col items-center justify-center rounded-xl px-2 py-2 text-xs transition", active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <span className="font-medium">{l.label}</span>
-            </Link>
-          )
-        })}
-      </div>
-    </div>
-  );
-}
-
+  { href:'/', label:'Overview', icon:LayoutDashboard },
+  { href:'/research', label:'Lab timers', icon:FlaskConical },
+  { href:'/damage', label:'Wall survival', icon:Shield },
+  { href:'/daily', label:'Time calculator', icon:Clock3 },
+]
 export function AppNav() {
-  return (
-    <>
-      <TopNav/>
-      <BottomNav/>
-    </>
-  )
+  const pathname=usePathname()
+  return <>
+    <aside className="console-sidebar">
+      <Link href="/" className="console-brand"><Castle size={22} strokeWidth={1.6}/><span>Tower<span className="font-normal text-muted-foreground"> Tools</span></span></Link>
+      <p className="console-nav-label">WORKSPACE</p>
+      <nav aria-label="Main navigation" className="space-y-1">
+        {links.map(({href,label,icon:Icon})=><Link key={href} href={href} aria-current={pathname===href?'page':undefined} className={cn('console-nav-link',pathname===href&&'active')}><Icon size={17} strokeWidth={1.7}/>{label}</Link>)}
+      </nav>
+      <div className="console-sidebar-footer"><span className="console-dot"/>Local data saved on this device<p>The Tower · Personal companion</p></div>
+    </aside>
+    <header className="console-topbar">
+      <Link href="/" className="console-brand md:hidden"><Castle size={21}/><span>Tower Tools</span></Link>
+      <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground"><span>Workspace</span><span className="opacity-40">/</span><span className="text-foreground">{links.find(l=>l.href===pathname)?.label??'Overview'}</span></div>
+      <span className="console-top-note"><span className="console-dot"/>Personal workspace<ArrowUpRight size={13}/></span>
+    </header>
+    <nav className="console-bottom-nav" aria-label="Mobile navigation">
+      {links.map(({href,label,icon:Icon})=><Link key={href} href={href} aria-current={pathname===href?'page':undefined} className={cn(pathname===href&&'active')}><Icon size={19} strokeWidth={1.7}/><span>{label==='Time calculator'?'Time':label==='Wall survival'?'Wall':label==='Lab timers'?'Labs':'Overview'}</span></Link>)}
+    </nav>
+  </>
 }

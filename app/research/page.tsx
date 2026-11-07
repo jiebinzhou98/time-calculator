@@ -182,150 +182,25 @@ export default function MultiPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-gradient-to-b from-background to-muted/30 pb-24">
-      <div className="mx-auto max-w-7xl px-3 py-6 sm:px-4 md:px-8 md:py-10 space-y-5 md:space-y-6">
-        <div className="flex items-end justify-between gap-3 md:gap-4">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl md:text-3xl">
-              Lab Slots
-            </h1>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <Button type="button" variant="outline" onClick={resetSlots}>
-              Reset
-            </Button>
-
-            <div className="text-right">
-              <div className="text-[10px] text-muted-foreground sm:text-xs">
-                Current Time
-              </div>
-              <div className="text-base font-mono tabular-nums sm:text-lg md:text-2xl">
-                {mounted ? formatTime(now) : "--:--:--"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-4 md:gap-6">
-          {slots.map((slot, i) => (
-            <Card
-              key={i}
-              className="w-full rounded-2xl border-muted/60 shadow-sm transition hover:shadow-md md:rounded-3xl"
-            >
-              <CardHeader className="pb-2 md:pb-3">
-                <CardTitle className="text-lg font-semibold tracking-tight sm:text-xl md:text-2xl">
-                  Slot {i + 1}
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="space-y-4 md:space-y-6">
-                <div className="grid grid-cols-5 gap-2 sm:gap-3 md:gap-4">
-                  {[1, 2, 3, 4, 5].map((x) => (
-                    <Button
-                      key={x}
-                      type="button"
-                      variant={slot.multiplier === x ? "default" : "outline"}
-                      className="h-11 w-full px-0 text-lg font-semibold sm:h-12 sm:text-xl md:h-16 md:text-2xl"
-                      onClick={() => updateSlot(i, { multiplier: x })}
-                    >
-                      x{x}
-                    </Button>
-                  ))}
-                </div>
-
-                <div className="text-sm text-muted-foreground" aria-live="off">
-                  Research remaining: {formatDuration(remainingMs(slot, now.getTime()))}
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
-                  <div className="space-y-1.5 md:space-y-2">
-                    <div className="text-lg font-medium text-muted-foreground sm:text-xl md:text-2xl">
-                      Days
-                    </div>
-                    <Input
-                      className="h-14 text-2xl sm:h-16 sm:text-3xl md:h-20 md:text-4xl"
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={editing?.index === i && editing.field === "days" ? editing.value : timeParts(remainingMs(slot, now.getTime())).days}
-                      onFocus={(e) => setEditing({ index: i, field: "days", value: e.target.value })}
-                      onBlur={() => setEditing(null)}
-                      onChange={(e) => {
-                        setEditing({ index: i, field: "days", value: e.target.value })
-                        updateSlot(i, { days: e.target.value })
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:space-y-2">
-                    <div className="text-lg font-medium text-muted-foreground sm:text-xl md:text-2xl">
-                      Hours
-                    </div>
-                    <Input
-                      className="h-14 text-2xl sm:h-16 sm:text-3xl md:h-20 md:text-4xl"
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={editing?.index === i && editing.field === "hours" ? editing.value : timeParts(remainingMs(slot, now.getTime())).hours}
-                      onFocus={(e) => setEditing({ index: i, field: "hours", value: e.target.value })}
-                      onBlur={() => setEditing(null)}
-                      onChange={(e) => {
-                        setEditing({ index: i, field: "hours", value: e.target.value })
-                        updateSlot(i, { hours: e.target.value })
-                      }}
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:space-y-2">
-                    <div className="text-lg font-medium text-muted-foreground sm:text-xl md:text-2xl">
-                      Minutes
-                    </div>
-                    <Input
-                      className="h-14 text-2xl sm:h-16 sm:text-3xl md:h-20 md:text-4xl"
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      value={editing?.index === i && editing.field === "minutes" ? editing.value : timeParts(remainingMs(slot, now.getTime())).minutes}
-                      onFocus={(e) => setEditing({ index: i, field: "minutes", value: e.target.value })}
-                      onBlur={() => setEditing(null)}
-                      onChange={(e) => {
-                        setEditing({ index: i, field: "minutes", value: e.target.value })
-                        updateSlot(i, { minutes: e.target.value })
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-xl border bg-card p-4 md:rounded-2xl md:p-6">
-                  <div className="text-lg text-muted-foreground sm:text-xl md:text-2xl">
-                    Completion Time
-                  </div>
-
-                  <div className="text-3xl font-mono tabular-nums sm:text-4xl md:text-5xl">
-                    {mounted ? (remainingMs(slot, now.getTime()) > 0 ? formatTime(results[i]) : "Completed") : "--:--:--"}
-                  </div>
-
-                  <div className="text-lg text-muted-foreground tabular-nums sm:text-xl md:text-2xl">
-                    {mounted && remainingMs(slot, now.getTime()) > 0 ? formatDate(results[i]) : "—"}
-                  </div>
-
-                  <div className="mt-3 text-lg leading-snug text-muted-foreground sm:text-xl md:mt-4 md:text-2xl">
-                    Time needed:{" "}
-                    <span className="font-mono text-foreground">
-                      {formatDuration(remainingMs(slot, now.getTime()) / slot.multiplier)}
-                    </span>{" "}
-                    <span className="text-muted-foreground">
-                      (x{slot.multiplier} speed)
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </main>
-  )
+  const running = slots.filter(slot => remainingMs(slot, now.getTime()) > 0).length
+  return <main className="console-page">
+    <div className="console-page-heading"><div><p className="console-eyebrow">RESEARCH WORKSPACE</p><h1>Lab timers</h1><p className="console-subtitle">Five slots. Live progress. Your next upgrade, on time.</p></div><Button variant="outline" onClick={resetSlots} className="text-xs">Reset all</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-6 border-b border-border pb-4"><p className="text-xs text-muted-foreground"><span className="console-dot"/>{running} / 5 labs running</p><p className="text-xs text-muted-foreground">Local time <span className="font-mono text-foreground ml-3" suppressHydrationWarning>{mounted?formatTime(now):'--:--:--'}</span></p></div>
+    <div className="console-lab-grid">
+      {slots.map((slot,i)=>{
+        const left=remainingMs(slot,now.getTime())
+        const parts=timeParts(left)
+        return <Card key={i} className="console-lab-card">
+          <CardHeader><CardTitle className="flex items-center justify-between text-sm"><span><span className="text-muted-foreground font-mono text-xs mr-3">{pad2(i+1)}</span>Lab {i+1}</span><span className={left>0?'text-primary text-[10px] font-normal':'text-muted-foreground text-[10px] font-normal'}>{left>0?'● Running':(Number(slot.days)>0||Number(slot.hours)>0||Number(slot.minutes)>0||Number(slot.remainingMs)>0)?'Complete':'Ready'}</span></CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="console-lab-rate">{[1,2,3,4,5].map(x=><Button key={x} variant={slot.multiplier===x?'default':'outline'} onClick={()=>updateSlot(i,{multiplier:x})} aria-label={`Lab ${i+1} speed ${x}x`} aria-pressed={slot.multiplier===x}>{x}×</Button>)}</div>
+            <div className="lab-fields">{(['days','hours','minutes'] as const).map(field=><label key={field}><span className="console-field-label capitalize">{field}</span><Input type="number" min={0} inputMode="numeric" aria-label={`Lab ${i+1} ${field}`} value={editing?.index===i&&editing.field===field?editing.value:parts[field]} onFocus={e=>setEditing({index:i,field,value:e.target.value})} onBlur={()=>setEditing(null)} onChange={e=>{setEditing({index:i,field,value:e.target.value});updateSlot(i,{[field]:e.target.value})}}/></label>)}</div>
+            <div className="rounded-lg bg-background px-4 py-3"><p className="text-[10px] uppercase tracking-widest text-muted-foreground">Research remaining</p><p className="font-mono text-lg mt-1 tabular-nums" suppressHydrationWarning>{mounted?formatDuration(left):'—'}</p></div>
+            <div className="flex items-end justify-between gap-3"><div><p className="text-[10px] text-muted-foreground mb-1">Estimated completion</p><p className="font-mono text-primary text-xl tabular-nums" suppressHydrationWarning>{mounted&&left>0?formatTime(results[i]):'—'}</p><p className="text-[10px] text-muted-foreground mt-1" suppressHydrationWarning>{mounted&&left>0?formatDate(results[i]):'Enter remaining research time'}</p></div><div className="text-right"><p className="text-[10px] text-muted-foreground mb-1">Real time left</p><p className="text-xs font-mono" suppressHydrationWarning>{mounted?formatDuration(left/slot.multiplier):'—'}</p></div></div>
+          </CardContent>
+        </Card>
+      })}
+    </div>
+    <p className="console-footer-note">Progress follows elapsed time, even when this page is closed.</p>
+  </main>
 }
