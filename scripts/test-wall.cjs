@@ -59,8 +59,7 @@ s=build({thorns:'110',wallThorns:'13',repeat:true,arrivalInterval:'2',count:'10'
 assert.ok(s.peakEnemies>10)
 assert.equal(s.totalSpawned,100)
 const manual={...build(),regen:50,horizon:2,hits:[{time:.5,weight:1,hits:1},{time:1,weight:1,hits:1}]}
-assert.equal(runWall({...manual,regenTiming:'ticks'},60).brokenAt,1)
-assert.equal(runWall({...manual,regenTiming:'continuous'},60).brokenAt,null)
+assert.equal(runWall(manual,60).brokenAt,null) // healing continues between closely spaced hits
 assert.equal(runWall({...manual,hits:[{time:1,weight:2,hits:2}]},60).brokenAt,1)
 assert.equal(runWall({...manual,regen:1000,hits:[{time:1,weight:1,hits:1}]},101).brokenAt,1)
 near(build({regen:'5',wallRegen:'200',regenMode:'tower'}).regen,10)
@@ -89,4 +88,13 @@ assert.equal(uncovered.pcolStatus,'inactive')
 near(wallDamageLimit(covered),wallDamageLimit(uncovered)*10)
 assert.notEqual(runWall(uncovered,200e15).brokenAt,null)
 assert.equal(buildWallScenario({...userWall,enemyType:'boss'},userDamage).scenario.pcolStatus,'unsupported')
+// Single-hit and siege must use the same first-hit reduction when coverage matches.
+const {calculateDamage}=load('damage')
+const at10Q={...userDamage,health:'40',healthUnit:'q',enemy:'10',enemyUnit:'Q'}
+near(calculateDamage(at10Q).hit,1e15)
+near(covered.firstHitFactor*1e19,calculateDamage(at10Q).hit)
+near(1e15/covered.regen,2.380952380952381)
+assert.notEqual(runWall(covered,1e19).brokenAt,null)
+const onlyOne=buildWallScenario({...userWall,count:'1',repeat:false},userDamage).scenario
+assert.equal(runWall(onlyOne,1e19).brokenAt,null)
 console.log('Wall tests passed: Thorns breakpoints, heat-up, immunity, timed clearing, PCol windows, perk handling, arrivals, regen timing/caps, lethal ordering, validation, boundary search.')

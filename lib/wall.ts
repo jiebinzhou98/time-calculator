@@ -9,7 +9,6 @@ export type WallSettings = {
   protected: boolean; protection: string
   bhOn: boolean; bhDamage: string; bhDuration: string; bhCooldown: string; bhOffset: string
   orbOn: boolean; orbDelay: string
-  regenTiming: 'continuous' | 'ticks'
 }
 export const DEFAULT_WALL: WallSettings = {
   health: '', healthUnit: 'q', startPercent: '100',
@@ -19,7 +18,7 @@ export const DEFAULT_WALL: WallSettings = {
   horizon: '120', enemyRemaining: '100', heat: true,
   protected: false, protection: '60',
   bhOn: false, bhDamage: '2', bhDuration: '30', bhCooldown: '50', bhOffset: '0',
-  orbOn: false, orbDelay: '2', regenTiming: 'ticks',
+  orbOn: false, orbDelay: '2',
 }
 export type HitEvent = { time: number; weight: number; hits: number }
 export type WallRun = { brokenAt: number | null; minimum: number; end: number; trace: {time:number; health:number}[] }
@@ -87,7 +86,7 @@ export function buildWallScenario(s: WallSettings, d: DamageSettings) {
       if (++operations > 100000) return {errors:['Scenario too dense: shorten duration or increase arrival / attack intervals.'],scenario:null}
       const t = Math.min(nextAttack, nextBH, orbTime)
       if (t > horizon + 1e-8) break
-      // Conservatively take simultaneous attacks before Orb/BH kills and regen ticks.
+      // Conservatively take simultaneous attacks before Orb/BH kills with no healing time between them.
       if (Math.abs(t - nextAttack) < 1e-7) {
         const key = Math.round(t * 1e6) / 1e6
         const weight = count * Math.pow(s.heat ? 1.04 : 1, hitIndex)
@@ -118,7 +117,7 @@ export function buildWallScenario(s: WallSettings, d: DamageSettings) {
     : !s.bhOn || bhDuration === 0 || bhOffset >= horizon ? 'inactive'
     : bhDuration === bhCooldown && bhOffset === 0 ? 'permanent' : 'windowed'
   const scenario = { pcolStatus, firstHitFactor:baseReduction * (bhActive(attackInterval) ? pcolMultiplier : 1), health:hp, startHealth:hp*startPercent/100, regen, horizon, hits, totalHits, totalSpawned,
-    killed, peakEnemies, firstCohortHits, firstCohortDeath, thornPercent:thornFraction*100, regenTiming:s.regenTiming }
+    killed, peakEnemies, firstCohortHits, firstCohortDeath, thornPercent:thornFraction*100 }
   return {errors, scenario}
 }
 export type WallScenario = NonNullable<ReturnType<typeof buildWallScenario>['scenario']>
@@ -126,23 +125,20 @@ export type WallScenario = NonNullable<ReturnType<typeof buildWallScenario>['sce
 export function runWall(s: WallScenario, enemyDamage: number, trace = false): WallRun {
   let health = s.startHealth, min = health, last = 0
   const points = trace ? [{time:0,health}] : []
-  function heal(to: number, beforeHit: boolean) {
-    const elapsed = s.regenTiming === 'continuous' ? to-last
-      : Math.max(0, (beforeHit ? Math.ceil(to - 1e-8)-1 : Math.floor(to+1e-8)) - Math.floor(last+1e-8))
-    if (elapsed > 0) health = Math.min(s.health,health + s.regen*elapsed)
+  function heal(to: number) {
+    // Healing runs for every elapsed game second, without a reset or delay on hits.
+    health = Math.min(s.health, health + s.regen * Math.max(0, to - last))
   }
   for (const event of s.hits) {
-    heal(event.time, true)
+    heal(event.time)
     if (trace) points.push({time:event.time,health})
     health -= enemyDamage * event.weight
     min = Math.min(min,health)
     if (trace) points.push({time:event.time,health:Math.max(0,health)})
     if (health <= 0) return {brokenAt:event.time,minimum:0,end:0,trace:points}
-    // A regen tick at the exact hit time is allowed only after the full burst.
-    if (s.regenTiming === 'ticks' && Math.abs(event.time-Math.round(event.time))<1e-8) health=Math.min(s.health,health+s.regen)
     last=event.time
   }
-  heal(s.horizon,false)
+  heal(s.horizon)
   if (trace) points.push({time:s.horizon,health})
   return {brokenAt:null,minimum:Math.max(0,min),end:health,trace:points}
 }

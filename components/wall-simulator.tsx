@@ -30,7 +30,6 @@ export function WallSimulator({damage,reductions,onEnemyChange}:{damage:DamageSe
           if(!(next.regenUnit in UNITS)) next.regenUnit='T'
           if(!['normal','boss','elite'].includes(next.enemyType)) next.enemyType='normal'
           if(!['wall','tower'].includes(next.regenMode)) next.regenMode='tower'
-          if(!['continuous','ticks'].includes(next.regenTiming)) next.regenTiming='ticks'
           setS(next)
         }
       } catch { /* Use defaults when storage is unavailable. */ }
@@ -72,7 +71,7 @@ export function WallSimulator({damage,reductions,onEnemyChange}:{damage:DamageSe
           <Quantity label={s.regenMode==='tower'?'Tower Health Regen / game second':'Final Wall Regen / game second'} value={s.regen} unit={s.regenUnit} onChange={(regen,regenUnit)=>patch({regen,regenUnit})}/>
           {s.regenMode==='tower'&&field('Wall Regen % (lab 20 = 200%)','wallRegen',0,1000)}
           <p className="text-xs text-muted-foreground">Tower Regen lab 50 alone does not determine this value. Enter the actual in-run stat after perks. If a module changes Wall Regen separately, use final Wall Regen mode.</p>
-          <label className="block space-y-2 text-sm"><span>Healing timing assumption</span><select className={selectClass} value={s.regenTiming} onChange={e=>patch({regenTiming:e.target.value as WallSettings['regenTiming']})}><option value="ticks">1-second ticks, simultaneous hits before healing</option><option value="continuous">Continuous healing between hits</option></select></label>
+          <p className="text-sm rounded-lg border p-3">Wall Regen heals continuously at the effective rate while the Wall stands, including between enemy hits. Taking damage does not pause or restart healing. Healing stops at the fortified health cap.</p>
         </CardContent></Card>
         {reductions}
         <Card><CardHeader><CardTitle>Thorns & enemies reaching the Wall</CardTitle></CardHeader><CardContent className="space-y-4">
@@ -110,9 +109,12 @@ export function WallSimulator({damage,reductions,onEnemyChange}:{damage:DamageSe
               <p>Your entered enemy damage: <strong>{f(enemy)}</strong></p>
               <p className={`font-semibold ${run.brokenAt===null?'text-green-700 dark:text-green-400':'text-red-700 dark:text-red-400'}`}>{run.brokenAt===null?`Wall holds for ${scenario.horizon} game seconds`:`Wall breaks at ${Number(run.brokenAt.toFixed(3))} game seconds`}</p>
               <p>First hit per enemy, after reductions: <strong>{f(enemy*scenario.firstHitFactor)}</strong></p>
+              <p>Time to heal one first hit: <strong>{scenario.regen > 0 ? `${Number((enemy*scenario.firstHitFactor/scenario.regen).toFixed(3))} game s` : 'No healing'}</strong></p>
               <p>First scheduled simultaneous attack: <strong>{f(enemy*(scenario.hits[0]?.weight ?? 0))}</strong></p>
               <p>Largest scheduled simultaneous attack: <strong>{f(enemy*largestBurstWeight)}</strong></p>
               <p>Scheduled average damage / game s: <strong>{f(enemy*averageWeight)}</strong></p>
+              <p>Continuous Wall healing / game s: <strong>{f(scenario.regen)}</strong></p>
+              <p>{enemy*averageWeight > scenario.regen ? 'Scheduled average incoming damage exceeds healing. Wall health provides a buffer, but can still run out.' : 'Healing covers scheduled average damage. Bursts can still break the Wall; use the simulated survival verdict.'}</p>
               <p className="text-xs text-muted-foreground">Scheduled damage assumes the Wall remains intact for the full duration; deaths and heat-up are included. Average damage alone does not determine survival.</p>
             </div>}
             <div><p className="text-sm text-muted-foreground">Maximum enemy damage for this setup over {scenario.horizon} game seconds</p><p className="mt-2 text-4xl font-semibold font-mono break-all">{limit===null?'No modeled hits':f(limit)}</p></div>
