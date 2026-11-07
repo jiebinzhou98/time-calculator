@@ -8,6 +8,7 @@ const links = [
   {href: "/", label: "Home"},
   {href: "/daily", label: "Daily"},
   {href: "/research", label: "Research"},
+  {href: "/damage", label: "Damage"},
 ];
 
 function TopNav() {
@@ -47,7 +48,7 @@ function BottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background/90 backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-3 px-3 py-2">
+      <div className="mx-auto grid max-w-md grid-cols-4 px-3 py-2">
         {links.map((l) => {
           const active = pathname === l.href;
           return (

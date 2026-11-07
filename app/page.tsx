@@ -45,6 +45,15 @@ export default function Home() {
               </Button>
             </CardContent>
           </Card>
+          <Card className="rounded-2xl border-muted/60 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-semibold tracking-tight">Damage Calculator</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">Calculate single-hit survival with health and damage reductions.</p>
+              <Button asChild className="w-full" variant="outline"><Link href="/damage">Open</Link></Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>
