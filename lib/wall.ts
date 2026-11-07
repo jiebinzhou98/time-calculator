@@ -113,7 +113,11 @@ export function buildWallScenario(s: WallSettings, d: DamageSettings) {
   let alive = 0
   for (const c of changes) { alive += c.delta; peakEnemies = Math.max(peakEnemies, alive) }
   const hits = [...events.values()].sort((a,b)=>a.time-b.time)
-  const scenario = { health:hp, startHealth:hp*startPercent/100, regen, horizon, hits, totalHits, totalSpawned,
+  const pcolStatus = !d.pcolOn ? 'off'
+    : !basic ? 'unsupported'
+    : !s.bhOn || bhDuration === 0 || bhOffset >= horizon ? 'inactive'
+    : bhDuration === bhCooldown && bhOffset === 0 ? 'permanent' : 'windowed'
+  const scenario = { pcolStatus, firstHitFactor:baseReduction * (bhActive(attackInterval) ? pcolMultiplier : 1), health:hp, startHealth:hp*startPercent/100, regen, horizon, hits, totalHits, totalSpawned,
     killed, peakEnemies, firstCohortHits, firstCohortDeath, thornPercent:thornFraction*100, regenTiming:s.regenTiming }
   return {errors, scenario}
 }

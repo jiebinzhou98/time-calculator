@@ -50,6 +50,8 @@ export function WallSimulator({damage,reductions,onEnemyChange}:{damage:DamageSe
     const result=buildWallScenario(s,{...damage,flameOn:false,pcolOn:false})
     return result.scenario?wallDamageLimit(result.scenario):null
   },[s,damage])
+  const largestBurstWeight = scenario?.hits.reduce((largest,event)=>Math.max(largest,event.weight),0) ?? 0
+  const averageWeight = scenario ? scenario.hits.reduce((total,event)=>total+event.weight,0)/scenario.horizon : 0
   const f=(n:number|null|undefined)=>n==null?'—':formatAmount(n)
   function field(label:string,key:keyof WallSettings,min:number,max:number,step:number|string='any') {
     return <label className="block space-y-2 text-sm"><span className="font-medium">{label}</span><Input className="h-11" aria-label={label} type="number" inputMode="decimal" min={min} max={max} step={step} value={String(s[key])} onChange={e=>patch({[key]:e.target.value})}/></label>
@@ -97,11 +99,27 @@ export function WallSimulator({damage,reductions,onEnemyChange}:{damage:DamageSe
         </CardContent></Card>
       </div>
       <div className="space-y-5 md:sticky md:top-20">
-        <Card className="border-primary/20 bg-primary/5"><CardHeader><CardTitle>Wall survival for this scenario</CardTitle></CardHeader><CardContent className="space-y-4">
+        <Card className="border-primary/20 bg-primary/5"><CardHeader><CardTitle>Enemy damage limit for this scenario</CardTitle></CardHeader><CardContent className="space-y-4">
           {!scenario?<div className="text-sm space-y-2" role="status"><p>Enter Wall health and the actual regen stat to calculate.</p>{built.errors.map(e=><p key={e}>{e}</p>)}</div>:<>
-            <div><p className="text-sm text-muted-foreground">Enemy damage boundary over {scenario.horizon} game seconds</p><p className="mt-2 text-4xl font-semibold font-mono break-all">{limit===null?'No modeled hits':f(limit)}</p></div>
+            {damage.pcolOn && (scenario.pcolStatus === 'inactive' || scenario.pcolStatus === 'unsupported') && <div role="alert" className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm space-y-2">
+              <p><strong>PCol selected but NOT applied.</strong> {scenario.pcolStatus === 'unsupported' ? 'This enemy group receives no PCol credit in this model.' : 'Black Hole coverage is disabled or never active during this simulation.'}</p>
+              {scenario.pcolStatus === 'inactive' && <Button variant="outline" className="h-auto whitespace-normal" onClick={()=>patch({bhOn:true,bhDuration:s.bhCooldown,bhOffset:'0'})}>Apply permanent BH coverage</Button>}
+            </div>}
+            <p className="text-sm"><strong>PCol status:</strong> {scenario.pcolStatus === 'permanent' ? 'Applied throughout (permanent BH)' : scenario.pcolStatus === 'windowed' ? 'Only applied during configured BH windows' : scenario.pcolStatus === 'off' ? 'Not selected' : 'Not applied'}</p>
+            {run && enemy !== null && <div className="rounded-xl border bg-background p-4 text-sm space-y-2">
+              <p>Your entered enemy damage: <strong>{f(enemy)}</strong></p>
+              <p className={`font-semibold ${run.brokenAt===null?'text-green-700 dark:text-green-400':'text-red-700 dark:text-red-400'}`}>{run.brokenAt===null?`Wall holds for ${scenario.horizon} game seconds`:`Wall breaks at ${Number(run.brokenAt.toFixed(3))} game seconds`}</p>
+              <p>First hit per enemy, after reductions: <strong>{f(enemy*scenario.firstHitFactor)}</strong></p>
+              <p>First scheduled simultaneous attack: <strong>{f(enemy*(scenario.hits[0]?.weight ?? 0))}</strong></p>
+              <p>Largest scheduled simultaneous attack: <strong>{f(enemy*largestBurstWeight)}</strong></p>
+              <p>Scheduled average damage / game s: <strong>{f(enemy*averageWeight)}</strong></p>
+              <p className="text-xs text-muted-foreground">Scheduled damage assumes the Wall remains intact for the full duration; deaths and heat-up are included. Average damage alone does not determine survival.</p>
+            </div>}
+            <div><p className="text-sm text-muted-foreground">Maximum enemy damage for this setup over {scenario.horizon} game seconds</p><p className="mt-2 text-4xl font-semibold font-mono break-all">{limit===null?'No modeled hits':f(limit)}</p></div>
             <p className="text-sm">{damage.enemyIncludesPerk?'Compare with the in-game enemy stat, already including trade-off perk.':'Compare with enemy damage before the trade-off perk.'} Enemy damage must stay below this boundary in this scenario. Values shown are rounded.</p>
             <p className="text-sm">Effective Wall healing: <strong>{f(scenario.regen)} / game s</strong></p>
+            <p className="text-xs text-muted-foreground">{s.regenMode === 'wall' ? 'Using final Wall Regen directly. Wall Regen % is not multiplied again.' : `Using Tower Regen × ${s.wallRegen}% Wall Regen. If your input is already Wall Regen, switch the Regen value source to Final Wall Regen.`}</p>
+            <p className="text-xs text-muted-foreground">This limit uses Wall health, healing, reductions and the full attack schedule. Changing the test enemy damage changes the survival verdict, not the calculated limit.</p>
             <p className="text-sm">Wall Thorns per hit: <strong>{Number(scenario.thornPercent.toFixed(4))}% max enemy HP</strong></p>
             <p className="text-sm">First batch: {scenario.firstCohortHits} hits per enemy{scenario.firstCohortDeath===null?' within the simulation (not killed yet)':`, cleared at ${Number(scenario.firstCohortDeath.toFixed(3))} game s`}.</p>
             <p className="text-sm">Peak concurrent enemies: {scenario.peakEnemies}. Modeled attacks: {scenario.totalHits}. Potential kills with Wall intact: {scenario.killed} / {scenario.totalSpawned}.</p>

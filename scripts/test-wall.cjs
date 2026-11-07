@@ -76,4 +76,17 @@ for(const variant of [{},{heat:true},{regen:'5',repeat:true},{enemyType:'boss'},
   assert.notEqual(runWall(scenario,boundary*1.001).brokenAt,null)
 }
 near(wallDamageLimit(build({health:'1',healthUnit:'q',regen:'0'})), wallDamageLimit(build({health:'1',healthUnit:'',regen:'0'}))*1e15)
+// User regression: 40q Wall, final Wall Regen 420T/s, 200q enemy stat.
+const userWall={...DEFAULT_WALL,health:'40',healthUnit:'q',regen:'420',regenUnit:'T',regenMode:'wall',bhOn:true,bhDuration:'50',bhCooldown:'50'}
+const userDamage={...DEFAULT_DAMAGE,defenseOn:true,defense:'98',flameOn:true,flame:'95',pcolOn:true,pcol:'Ancestral',perkOn:true,enemyIncludesPerk:true}
+const covered=buildWallScenario(userWall,userDamage).scenario
+assert.equal(covered.pcolStatus,'permanent')
+near(covered.regen,420e12)
+near(covered.firstHitFactor*200e15,20e12)
+assert.equal(runWall(covered,200e15).brokenAt,null)
+const uncovered=buildWallScenario({...userWall,bhOn:false},userDamage).scenario
+assert.equal(uncovered.pcolStatus,'inactive')
+near(wallDamageLimit(covered),wallDamageLimit(uncovered)*10)
+assert.notEqual(runWall(uncovered,200e15).brokenAt,null)
+assert.equal(buildWallScenario({...userWall,enemyType:'boss'},userDamage).scenario.pcolStatus,'unsupported')
 console.log('Wall tests passed: Thorns breakpoints, heat-up, immunity, timed clearing, PCol windows, perk handling, arrivals, regen timing/caps, lethal ordering, validation, boundary search.')
