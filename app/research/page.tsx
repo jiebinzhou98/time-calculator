@@ -10,6 +10,8 @@ type Slot = {
   days: string
   hours: string
   minutes: string
+  remainingMs?: number
+  updatedAt?: number
 }
 
 const STORAGE_KEY = "time-calculator-research-slots"
@@ -29,6 +31,8 @@ function normalizeSlot(slot: Partial<Slot> | undefined): Slot {
     days: String(slot?.days ?? "0"),
     hours: String(slot?.hours ?? "0"),
     minutes: String(slot?.minutes ?? "0"),
+    remainingMs: Number.isFinite(slot?.remainingMs) ? Math.max(0, slot!.remainingMs!) : undefined,
+    updatedAt: Number.isFinite(slot?.updatedAt) ? slot!.updatedAt : undefined,
   }
 }
 
@@ -57,19 +61,27 @@ function formatDate(d: Date) {
   return `${y}-${m}-${day}`
 }
 
-function calcMs(slot: Slot) {
-  const d = Number(slot.days) || 0
-  const h = Number(slot.hours) || 0
-  const m = Number(slot.minutes) || 0
+function remainingMs(slot: Slot, now: number) {
+  const initial = slot.remainingMs ?? (
+    ((Math.max(0, Number(slot.days) || 0) * 24 + Math.max(0, Number(slot.hours) || 0)) * 60
+      + Math.max(0, Number(slot.minutes) || 0)) * 60000
+  )
+  const elapsed = Math.max(0, now - (slot.updatedAt ?? now))
+  return Math.max(0, initial - elapsed * slot.multiplier)
+}
 
-  const baseMs = (((d * 24 + h) * 60) + m) * 60 * 1000
-  const mult = slot.multiplier > 0 ? slot.multiplier : 1
-
-  return baseMs / mult
+function timeParts(ms: number) {
+  const minutes = Math.ceil(ms / 60000)
+  return {
+    days: String(Math.floor(minutes / 1440)),
+    hours: String(Math.floor(minutes % 1440 / 60)),
+    minutes: String(minutes % 60),
+  }
 }
 
 function formatDuration(ms: number) {
-  const totalMinutes = Math.floor(ms / 60000)
+  const totalSeconds = Math.ceil(ms / 1000)
+  const totalMinutes = Math.floor(totalSeconds / 60)
 
   const days = Math.floor(totalMinutes / (60 * 24))
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60)
@@ -81,10 +93,12 @@ function formatDuration(ms: number) {
   if (hours > 0) parts.push(`${hours}h`)
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`)
 
+  parts.push(`${totalSeconds % 60}s`)
   return parts.join(" ")
 }
 
 export default function MultiPage() {
+  const [editing, setEditing] = useState<{ index: number; field: string; value: string } | null>(null)
   const [mounted, setMounted] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [now, setNow] = useState<Date>(() => new Date())
@@ -100,7 +114,12 @@ export default function MultiPage() {
 
       if (saved) {
         const parsed = JSON.parse(saved)
-        setSlots(normalizeSlots(parsed))
+        const timestamp = Date.now()
+        setSlots(normalizeSlots(parsed).map(slot => ({
+          ...slot,
+          remainingMs: remainingMs(slot, timestamp),
+          updatedAt: timestamp,
+        })))
       } else {
         setSlots(createDefaultSlots())
       }
@@ -128,16 +147,31 @@ export default function MultiPage() {
   }, [])
 
   const results = useMemo(() => {
-    return slots.map((slot) => new Date(now.getTime() + calcMs(slot)))
+    return slots.map((slot) => new Date(now.getTime() + remainingMs(slot, now.getTime()) / slot.multiplier))
   }, [now, slots])
 
   function updateSlot(i: number, patch: Partial<Slot>) {
-    setSlots((prev) =>
-      prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s))
-    )
+    const timestamp = Date.now()
+    setNow(new Date(timestamp))
+    setSlots(prev => prev.map((slot, index) => {
+      if (index !== i) return slot
+      const remaining = remainingMs(slot, timestamp)
+      const parts = { ...timeParts(remaining), ...patch }
+      const changesTime = patch.days !== undefined || patch.hours !== undefined || patch.minutes !== undefined
+      return {
+        ...slot,
+        ...patch,
+        remainingMs: changesTime
+          ? ((Math.max(0, Number(parts.days) || 0) * 24 + Math.max(0, Number(parts.hours) || 0)) * 60
+            + Math.max(0, Number(parts.minutes) || 0)) * 60000
+          : remaining,
+        updatedAt: timestamp,
+      }
+    }))
   }
 
   function resetSlots() {
+    setEditing(null)
     const freshSlots = createDefaultSlots()
     setSlots(freshSlots)
 
@@ -201,6 +235,10 @@ export default function MultiPage() {
                   ))}
                 </div>
 
+                <div className="text-sm text-muted-foreground" aria-live="off">
+                  Research remaining: {formatDuration(remainingMs(slot, now.getTime()))}
+                </div>
+
                 <div className="grid grid-cols-3 gap-3 sm:gap-4 md:gap-6">
                   <div className="space-y-1.5 md:space-y-2">
                     <div className="text-lg font-medium text-muted-foreground sm:text-xl md:text-2xl">
@@ -211,8 +249,13 @@ export default function MultiPage() {
                       type="number"
                       min={0}
                       inputMode="numeric"
-                      value={slot.days}
-                      onChange={(e) => updateSlot(i, { days: e.target.value })}
+                      value={editing?.index === i && editing.field === "days" ? editing.value : timeParts(remainingMs(slot, now.getTime())).days}
+                      onFocus={(e) => setEditing({ index: i, field: "days", value: e.target.value })}
+                      onBlur={() => setEditing(null)}
+                      onChange={(e) => {
+                        setEditing({ index: i, field: "days", value: e.target.value })
+                        updateSlot(i, { days: e.target.value })
+                      }}
                     />
                   </div>
 
@@ -225,8 +268,13 @@ export default function MultiPage() {
                       type="number"
                       min={0}
                       inputMode="numeric"
-                      value={slot.hours}
-                      onChange={(e) => updateSlot(i, { hours: e.target.value })}
+                      value={editing?.index === i && editing.field === "hours" ? editing.value : timeParts(remainingMs(slot, now.getTime())).hours}
+                      onFocus={(e) => setEditing({ index: i, field: "hours", value: e.target.value })}
+                      onBlur={() => setEditing(null)}
+                      onChange={(e) => {
+                        setEditing({ index: i, field: "hours", value: e.target.value })
+                        updateSlot(i, { hours: e.target.value })
+                      }}
                     />
                   </div>
 
@@ -239,29 +287,34 @@ export default function MultiPage() {
                       type="number"
                       min={0}
                       inputMode="numeric"
-                      value={slot.minutes}
-                      onChange={(e) => updateSlot(i, { minutes: e.target.value })}
+                      value={editing?.index === i && editing.field === "minutes" ? editing.value : timeParts(remainingMs(slot, now.getTime())).minutes}
+                      onFocus={(e) => setEditing({ index: i, field: "minutes", value: e.target.value })}
+                      onBlur={() => setEditing(null)}
+                      onChange={(e) => {
+                        setEditing({ index: i, field: "minutes", value: e.target.value })
+                        updateSlot(i, { minutes: e.target.value })
+                      }}
                     />
                   </div>
                 </div>
 
                 <div className="rounded-xl border bg-card p-4 md:rounded-2xl md:p-6">
                   <div className="text-lg text-muted-foreground sm:text-xl md:text-2xl">
-                    Result
+                    Completion Time
                   </div>
 
                   <div className="text-3xl font-mono tabular-nums sm:text-4xl md:text-5xl">
-                    {mounted ? formatTime(results[i]) : "--:--:--"}
+                    {mounted ? (remainingMs(slot, now.getTime()) > 0 ? formatTime(results[i]) : "Completed") : "--:--:--"}
                   </div>
 
                   <div className="text-lg text-muted-foreground tabular-nums sm:text-xl md:text-2xl">
-                    {mounted ? formatDate(results[i]) : "---- -- --"}
+                    {mounted && remainingMs(slot, now.getTime()) > 0 ? formatDate(results[i]) : "—"}
                   </div>
 
                   <div className="mt-3 text-lg leading-snug text-muted-foreground sm:text-xl md:mt-4 md:text-2xl">
                     Time needed:{" "}
                     <span className="font-mono text-foreground">
-                      {formatDuration(calcMs(slot))}
+                      {formatDuration(remainingMs(slot, now.getTime()) / slot.multiplier)}
                     </span>{" "}
                     <span className="text-muted-foreground">
                       (x{slot.multiplier} speed)
